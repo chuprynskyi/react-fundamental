@@ -1,36 +1,32 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import PostService from './API/PostService';
+import { MyModal } from './conmponents/MyModal/MyModal';
 import { PostFilter } from './conmponents/PostFilter';
 import PostForm from './conmponents/PostForm';
 import { PostList } from './conmponents/PostList';
-import MyInput from './conmponents/UI/input/MyInput';
-import { MySelect } from './conmponents/UI/select/MySelect';
+import { MyButton } from './conmponents/UI/buttom/MyButton';
+import { Loader } from './conmponents/UI/Loader/Loader';
+import { UseFetching } from './hooks/useFetching';
+import { usePosts } from './hooks/usePosts';
 import './styles/App.css';
 
 function App() {
-  const [posts, setPosts] = useState([
-    { id: 1, title: 'aa', body: 'bb' },
-    { id: 2, title: 'bb', body: 'cc' },
-    { id: 3, title: 'vv', body: 'aa' },
-  ]);
+  const [posts, setPosts] = useState([]);
   const [filter, setFilter] = useState({ sort: '', query: '' });
+  const [modal, setModal] = useState(false);
+  const sortedAndSearchedPosts = usePosts(posts, filter.sort, filter.query);
+  const [fetchPosts, isPostsLoading, postError] = UseFetching(async () => {
+    const posts = await PostService.getAll();
+    setPosts(posts);
+  });
 
-  const sortedPosts = useMemo(() => {
-    if (filter.sort) {
-      return [...posts].sort((a, b) =>
-        a[filter.sort].localeCompare(b[filter.sort])
-      );
-    }
-    return posts;
-  }, [filter.sort, posts]);
-
-  const sortedAndSearchedPosts = useMemo(() => {
-    return sortedPosts.filter((post) =>
-      post.title.toLowerCase().includes(filter.query.toLowerCase())
-    );
-  }, [filter.query, sortedPosts]);
+  useEffect(() => {
+    fetchPosts();
+  }, []);
 
   const createPost = (newPost) => {
     setPosts([...posts, newPost]);
+    setModal(false);
   };
 
   const removePost = (post) => {
@@ -39,14 +35,30 @@ function App() {
 
   return (
     <div className='App'>
-      <PostForm create={createPost} />
+      <MyButton style={{ marginTop: 20 }} onClick={() => setModal(true)}>
+        Створити користувача
+      </MyButton>
+      <MyModal visible={modal} setVisible={setModal}>
+        <PostForm create={createPost} />
+      </MyModal>
       <hr style={{ margin: '15px 0' }} />
       <PostFilter filter={filter} setFilter={setFilter} />
-      <PostList
-        remove={removePost}
-        posts={sortedAndSearchedPosts}
-        title='Список постів'
-      />
+      {postError && 
+        <h1>Error ${postError}</h1>
+      }
+      {isPostsLoading ? (
+        <div
+          style={{ display: 'flex', justifyContent: 'center', marginTop: '50px' }}
+        >
+          <Loader />
+        </div>
+      ) : (
+        <PostList
+          remove={removePost}
+          posts={sortedAndSearchedPosts}
+          title='Список постів'
+        />
+      )}
     </div>
   );
 }
